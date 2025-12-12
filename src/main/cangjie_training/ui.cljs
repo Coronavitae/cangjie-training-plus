@@ -174,7 +174,7 @@
                            question-char)}
        question-char]]
      (when (rum/react state/*show-pinyin?)
-       [:div.text-sm.text-gray-500.mt-1 (model/get-pinyin question-char)])
+       [:div.text-lg.font-bold.text-gray-600.mt-1 (model/get-pinyin question-char)])
      (char-question-parts model)
      [:div.pt-4 (char-question-controls model >event-chan)]]))
 
