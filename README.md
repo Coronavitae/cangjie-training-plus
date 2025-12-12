@@ -1,3 +1,10 @@
+# Fork me
+
+This Readme is copied from the [original cangjie-training app](https://github.com/JustForFun119/cangjie-training).
+
+[Try this version here!] (https://coronavitae.github.io/cangjie-training-plus/)
+Following text is from main branch:
+
 # cangjie-training
 
 Train Cangjie keyboard input, increase typing fluency (Input 🔁 Memorise)
