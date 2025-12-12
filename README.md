@@ -1,4 +1,4 @@
-# Fork me
+# Fork
 
 This Readme is copied from the [original cangjie-training app](https://github.com/JustForFun119/cangjie-training).
 
