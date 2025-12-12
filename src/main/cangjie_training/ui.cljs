@@ -3,6 +3,7 @@
             [cangjie-training.event-fx :as event-fx]
             [cangjie-training.learner :as learner]
             [cangjie-training.model :as model]
+            [cangjie-training.state :as state] ; Use shared state
             [cangjie-training.languages :as langs]
             [cljs.core.async :as async]
             [clojure.set :as set]
@@ -94,18 +95,19 @@
      (rum/with-key (keyboard-key eng-char (= hint-char eng-char) >event-chan)
        eng-char))])
 
-(rum/defc keyboard-hud < rum/static
+(rum/defc keyboard-hud < rum/reactive
   [& {:keys [question-char ans-parts hint-count show? >event-chan]}]
   (let [radicals (model/split-radicals question-char)
         hint-char (when (> hint-count (count ans-parts))
-                    (nth radicals (count ans-parts) nil))]
+                    (nth radicals (count ans-parts) nil))
+        practice-mode? (rum/react state/*practice-mode?)]
     [:div.w-full.flex.flex-col {:class (when-not show?
                                          "bg-slate-200 dark:bg-slate-800")
                                 :style {:height "16rem"}}
-     (when show? [:<> ; QWERTY keyboard
-                  (keyboard-row "qwertyuiop" hint-char >event-chan)
-                  (keyboard-row "asdfghjkl" hint-char >event-chan)
-                  (keyboard-row "xcvbnm" hint-char >event-chan)])]))
+     (when (or show? practice-mode?) [:<> ; QWERTY keyboard
+                  (keyboard-row "qwertyuiop" (if practice-mode? nil hint-char) >event-chan)
+                  (keyboard-row "asdfghjkl" (if practice-mode? nil hint-char) >event-chan)
+                  (keyboard-row "xcvbnm" (if practice-mode? nil hint-char) >event-chan)])]))
 
 (rum/defc char-answer-part < rum/static
   [& {:keys [radical hint? next? answered? correct?]}]
@@ -176,12 +178,22 @@
 
 (rum/defc learn-more-prompt < rum/reactive [add-count >event-chan]
   (let [language (rum/react *display-language)]
-    [:div (button (langs/text ::label--learn-more-button language
-                              add-count)
+    [:div (button (str (langs/text ::label--learn-more-button language
+                                  add-count) " [1]")
                   #(async/put! >event-chan
                                [:msg/expand-learner-pool add-count
                                 (langs/text ::label--learn-more-prompt
                                             language)]))]))
+
+(rum/defc continue-review-button < rum/reactive [>event-chan]
+  (let [language (rum/react *display-language)]
+    [:div (button (str (langs/text ::label--continue-review-button language) " [2]")
+                  #(async/put! >event-chan [:msg/continue-review]))]))
+
+(rum/defc toggle-practice-mode-button < rum/reactive [>event-chan]
+  (let [language (rum/react *display-language)]
+    [:div (button (str (langs/text ::label--toggle-practice-mode-button language) " [\\]")
+                  #(async/put! >event-chan [:msg/toggle-practice-mode]))]))
 
 (rum/defc learner-db-viz < rum/reactive [{:keys [viz-page-size viz-page] :as model}
                                          learner-db >event-chan]
@@ -251,7 +263,11 @@
          (progress-bar progress-percent)
          (str (js/Math.floor progress-percent) "%")])
       ;; button prompt to add more chars into learning pool
-      (learn-more-prompt model/learn-more-word-count >event-chan)]]))
+      (learn-more-prompt model/learn-more-word-count >event-chan)
+      ;; button to continue reviewing learnt characters
+      (continue-review-button >event-chan)
+      ;; button to toggle practice mode
+      (toggle-practice-mode-button >event-chan)]]))
 
 (rum/defc learner-stats < rum/reactive [{:keys [show-stats?] :as model}
                                         >event-chan]
@@ -274,9 +290,28 @@
     [:div {:class "md:px-8"}
      (learner-db-viz model @model/*learner-db >event-chan)]]])
 
+(rum/defc daily-stats-display < rum/reactive []
+  (let [language (rum/react *display-language)
+        stats (model/get-daily-stats)
+        avg-score (model/calculate-average-score)]
+    [:div.w-full.max-w-md.mx-auto
+     (card
+      [:div.p-4.flex.flex-col.gap-3
+       [:h3.text-lg.font-semibold.text-center
+        (langs/text ::label--daily-stats-title language)]
+       [:div.flex.justify-between
+        [:span (langs/text ::label--total-reviewed language)]
+        [:span.text-blue-600.font-semibold (:total-reviewed stats)]]
+       [:div.flex.justify-between
+        [:span (langs/text ::label--total-passed language)]
+        [:span.text-green-600.font-semibold (:total-passed stats)]]
+       [:div.flex.justify-between
+        [:span (langs/text ::label--average-score language)]
+        [:span.font-semibold (str avg-score "%")]]])]))
+
 (rum/defc all-done < rum/reactive [model >event-chan]
   [:div.w-full.h-full.grid.justify-items-center.items-center
-   {:style {:grid-template-rows "1fr 1fr" :gap "1rem"}}
+   {:style {:grid-template-rows "1fr 1fr 1fr" :gap "1rem"}}
    [:div {:style {:min-width "fit-content" :width "80vw" :max-width "36rem"}}
     (card
      [:div.py-8.flex.flex-col.items-center.gap-8
@@ -287,12 +322,17 @@
       (when (model/prompt-learn-more? @model/*learner-db
                                       model/learn-more-word-count)
         (learn-more-prompt model/learn-more-word-count >event-chan))])]
-      ;; learner DB visualisation
+   
+   ;; Daily statistics display
+   [:div.w-full.px-4 {:style {:max-width "52rem"}}
+    (daily-stats-display)]
+   
+   ;; learner DB visualisation
    [:div.w-full.px-4.self-end {:style {:max-width "52rem"}}
     (learner-stats model >event-chan)]])
 
 (rum/defc radical-trainer < rum/reactive [*model >event-chan]
-  (let [{:keys [question-char ans-parts hint-count] :as model}
+  (let [{:keys [question-char ans-parts hint-count practice-mode?] :as model}
         (rum/react *model)
         review-items (model/items-to-review @model/*learner-db)]
     (if (nil? question-char)
@@ -302,6 +342,10 @@
        [:div {:style {:min-width "fit-content" :width "80vw" :max-width "36rem"}}
         (card [:div.flex.flex-col.items-center
                [:div.flex.flex-col.items-center {:class "p-2" :style {:gap "1rem"}}
+                (when practice-mode?
+                  [:div {:class "bg-blue-200 dark:bg-blue-800 px-3 py-1 rounded-full text-sm font-semibold"
+                         :style {:margin-bottom "0.5rem"}}
+                   (langs/text ::label--practice-mode-indicator (rum/react *display-language))])
                 [:span (langs/text ::label--questions-remaining
                                    (rum/react *display-language)
                                    (count review-items))]
@@ -312,10 +356,11 @@
        ;; show virtual keyboard
        (keyboard-hud :question-char question-char
                      :ans-parts ans-parts
-                     :hint-count hint-count
+                     :hint-count (if practice-mode? (count (model/split-radicals question-char)) hint-count)
                      :show? (or (some-> @model/*learner-db (get question-char)
                                         learner/need-hint?)
-                                (> hint-count 0))
+                                (> hint-count 0)
+                                practice-mode?)
                      :>event-chan >event-chan)])))
 
 (rum/defc language-switcher < rum/reactive []
@@ -329,11 +374,17 @@
       [:option {:key lang :value lang}
        (langs/text ::label--language lang)])]])
 
+;; Version indicator component
+(rum/defc version-indicator < rum/static []
+  [:div.absolute.bottom-2.right-2.text-xs.text-gray-400.dark:text-gray-500
+   "v0.20"])
+
 ;; app main
 (rum/defc app-main [*model]
   (let [>message-chan (event-fx/init-event-msg-chan *model *pressed-keys)]
     ;; base UI component
-    [:div.w-full.h-screen.p-4.flex.flex-col.justify-center
+    [:div.w-full.h-screen.p-4.flex.flex-col.justify-center.relative
      {:class ["bg-slate-50 dark:bg-slate-900 dark:text-slate-100"]}
      (language-switcher)
-     (radical-trainer *model >message-chan)]))
+     (radical-trainer *model >message-chan)
+     (version-indicator)]))

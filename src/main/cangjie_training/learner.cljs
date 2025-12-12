@@ -62,7 +62,7 @@
           (rescale [(* -0.5 part-count) part-count] [0 1]))))
   (update-stat [_this rating answer-time-taken-secs]
     (let [now (js/Date.now)
-          correct? (> rating 0.6)
+          correct? (> rating 0.8)
           overdue (if correct?
                     (min 2 (/ (days-diff now dlr) dbr))
                     1)
@@ -71,7 +71,7 @@
           difficulty-weight (- 3 (* 1.7 difficulty))
           dbr (if correct?
                 (+ 1 (* (dec difficulty-weight) overdue (+ 0.95 (rand 0.1))))
-                (min 1 (/ 1 (+ 1 (* 3 difficulty)))))
+                0) ; Failed characters repeat immediately
           ;; adjustment: quick answer delays review by 2 days
           dbr (if (and correct? (<= answer-time-taken-secs 3))
                 (+ dbr 2)

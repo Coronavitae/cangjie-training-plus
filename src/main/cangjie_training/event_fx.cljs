@@ -1,7 +1,9 @@
 (ns cangjie-training.event-fx
   (:require [cangjie-training.dictionary :as cj-dict]
             [cangjie-training.learner :as learner]
+            [cangjie-training.languages :as langs] ; Add languages for prompt text
             [cangjie-training.model :as model :refer [*learner-db]]
+            [cangjie-training.state :as state] ; Use shared state
             [cangjie-training.util :refer [log]]
             [cljs.core.async :as async]
             [clojure.set :as set]
@@ -17,7 +19,8 @@
    "KeyG" "g" "KeyH" "h" "KeyJ" "j" "KeyK" "k" "KeyL" "l" "KeyZ" "z" "KeyX" "x"
    "KeyC" "c" "KeyV" "v" "KeyB" "b" "KeyN" "n" "KeyM" "m"
    "Tab" "Tab" "Backspace" "Backspace" "BracketLeft" "BracketLeft"
-   "BracketRight" "BracketRight" "Space" "Space" "Slash" "Slash"})
+   "BracketRight" "BracketRight" "Space" "Space" "Slash" "Slash"
+   "Backslash" "Backslash"})
 
 (defn- key-event->msg [model key-code]
   (cond
@@ -27,6 +30,10 @@
     (= key-code "BracketRight") [:msg/viz-next-page]
     (= key-code "BracketLeft") [:msg/viz-prev-page]
     (= key-code "Slash") [:msg/set-stats-show-hide (not (:show-stats? model))]
+    (= key-code "Backslash") [:msg/toggle-practice-mode]
+    (= key-code "Digit1") [:msg/expand-learner-pool model/learn-more-word-count
+                           (langs/text :cangjie-training.ui/label--learn-more-prompt ::langs/display-lang--english)]
+    (= key-code "Digit2") [:msg/continue-review]
     :else (let [key-name (key-code->name key-code)]
             (if (contains? model/keyboard-key->cj-part key-name)
               [:msg/enter-char key-name]
@@ -62,8 +69,7 @@
       :msg/delete-last-char
       (if (not answered?)
         [(assoc model
-                :ans-parts  (-> ans-parts butlast vec)
-                :hint-count (max (dec hint-count) 0))
+                :ans-parts  (-> ans-parts butlast vec))
          nil]
         [model nil])
 
@@ -76,7 +82,6 @@
               new-ans-parts  (conj ans-parts char-input)]
           [(assoc model
                   :ans-parts   new-ans-parts
-                  :hint-count  (max hint-count (count new-ans-parts))
                   :parts-score (model/score-part parts-score ans-part-index
                                                  correct?)
                   :answered?   (= new-ans-parts radicals))
@@ -128,22 +133,80 @@
       [(assoc model :show-stats? (first msg-args))
        nil]
 
+      :msg/continue-review
+      [model
+       {:fx-type :fx/continue-review
+        :post-fx (fn [learner-db] [[:msg/save-learner-db learner-db]
+                                     [:msg/new-question learner-db]])}]
+
+      :msg/toggle-practice-mode
+      (let [new-practice-mode? (not (:practice-mode? model))
+            new-hint-count (if new-practice-mode?
+                            (count (model/split-radicals (:question-char model)))
+                            (:hint-count model))]
+        [(do
+           (swap! state/*practice-mode? not)
+           (assoc model 
+                 :practice-mode? new-practice-mode?
+                 :hint-count new-hint-count))
+         nil])
+
       [model nil])))
 
 (defmulti do-effect! (fn [_model {:keys [fx-type]}] fx-type))
 
 (defmethod do-effect! :fx/update-learner-db
-  [{:keys [question-char parts-score question-start-time]} {:keys [post-fx]}]
-  (let [grade (learner/grade-answer (get @*learner-db question-char)
+  [model {:keys [post-fx]}]
+  (let [{:keys [question-char parts-score question-start-time practice-mode?]} model
+        grade (learner/grade-answer (get @*learner-db question-char)
                                     parts-score)
-        answer-time-taken-ms (- (js/Date.now) question-start-time)]
-    (post-fx (swap! *learner-db update question-char
-                    learner/update-stat grade (/ answer-time-taken-ms 1000)))))
+        answer-time-taken-ms (- (js/Date.now) question-start-time)
+        ; Calculate pass/fail based on grade (0.8 threshold like in SM-2-mod)
+        passed? (> grade 0.8)
+        ; Calculate score incorporating both accuracy and speed
+        total-parts (count parts-score)
+        correct-parts (count (filter pos? parts-score))
+        accuracy-score (if (pos? total-parts) (/ correct-parts total-parts) 0)
+        ; Convert milliseconds to seconds for the time bonus calculation
+        time-in-seconds (/ answer-time-taken-ms 1000.0)
+        time-bonus (max 0 (* (- 4 time-in-seconds) 0.1))
+        score (+ (* accuracy-score 0.7) time-bonus)]
+        
+    ; DEBUG: Log all calculation values
+    (js/console.log "DEBUG: Scoring calculations:")
+    (js/console.log "  answer-time-taken-ms:" answer-time-taken-ms)
+    (js/console.log "  time-in-seconds:" time-in-seconds)
+    (js/console.log "  total-parts:" total-parts)
+    (js/console.log "  correct-parts:" correct-parts)
+    (js/console.log "  accuracy-score:" accuracy-score)
+    (js/console.log "  time-bonus:" time-bonus)
+    (js/console.log "  final score:" score)
+    
+    ; Update daily statistics (only in normal mode, not practice mode)
+    (when (not practice-mode?)
+      (model/update-daily-stats! passed? score question-char))
+    
+    (if practice-mode?
+      ; In practice mode: update review timing but preserve difficulty
+      (let [current-stat (get @*learner-db question-char)
+            ; Create updated stat with new review timing but same difficulty
+            updated-stat (assoc current-stat
+                              :dlr (js/Date.now)
+                              :po 1)] ; po = 1 indicates a review occurred
+        (post-fx (swap! *learner-db assoc question-char updated-stat)))
+      ; In normal mode: update full statistics including difficulty
+      (post-fx (swap! *learner-db update question-char
+                      learner/update-stat grade (/ answer-time-taken-ms 1000))))))
+
+(defmethod do-effect! :fx/start-new-session
+  [_db {:keys [post-fx]}]
+  (model/start-new-session!)
+  (when post-fx (post-fx @model/*learner-db)))
 
 (defmethod do-effect! :fx/persist-learner-db
   [_db {:keys [learner-db]}]
   (log "saving..." (clj->js learner-db))
-  (model/persist-learner-db! learner-db))
+  (model/persist-all-data! @model/*learner-db @model/*daily-stats))
 
 (defmethod do-effect! :fx/expand-learner-pool
   [_db {:keys [expand-count prompt-message post-fx]}]
@@ -155,6 +218,19 @@
       (post-fx (swap! *learner-db merge (model/init-learner-db new-chars))))
     (js/alert "You have learnt all " (count cj-dict/popular-chinese-chars)
               " Chinese characters available in this app! 🎉")))
+
+(defmethod do-effect! :fx/continue-review
+  [_db {:keys [post-fx]}]
+  ; Start new session when user continues review
+  (model/start-new-session!)
+  (let [chars-to-review (model/chars-for-continue-review @model/*learner-db)]
+    (if (seq chars-to-review)
+      (do
+        (log "Continuing review - chars to review:" chars-to-review)
+        (let [updated-db (swap! *learner-db model/set-chars-due-now chars-to-review)]
+          (log "Updated DB:" (count updated-db) "chars, due chars:" (count (model/items-to-review updated-db)))
+          (post-fx updated-db)))
+      (js/alert "No characters available for review yet. Keep learning!"))))
 
 (defn init-event-msg-chan [*model *pressed-keys]
   (let [>message-chan (async/chan)]

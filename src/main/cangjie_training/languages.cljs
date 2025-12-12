@@ -23,13 +23,20 @@
     :cangjie-training.learner/due-now "現在"
     :cangjie-training.ui/label--learning-progress "進度"
     :cangjie-training.ui/label--learn-more-button "學習多%s個字"
+    :cangjie-training.ui/label--continue-review-button "繼續學習"
+    :cangjie-training.ui/label--toggle-practice-mode-button "切換練習模式"
+    :cangjie-training.ui/label--practice-mode-indicator "練習模式 - 對精通無影響"
     :cangjie-training.ui/label--learn-more-prompt (str "將這%s個字添加到學習詞庫:\n"
                                                        "%s\n"
                                                        "你確定嗎?")
     :cangjie-training.ui/label--all-done-line-1 "重溫完畢。"
     :cangjie-training.ui/label--all-done-line-2 "請稍後回來！"
     :cangjie-training.util/label--recently "剛剛"
-    :cangjie-training.util/label--soon "即將"}
+    :cangjie-training.util/label--soon "即將"
+    :cangjie-training.ui/label--daily-stats-title "今日進度"
+    :cangjie-training.ui/label--total-reviewed "已重溫字數"
+    :cangjie-training.ui/label--total-passed "通過字數"
+    :cangjie-training.ui/label--average-score "平均得分"}
 
    ::display-lang--english
    {:cangjie-training.ui/label--language "英 English"
@@ -50,6 +57,9 @@
     :cangjie-training.learner/due-now "now"
     :cangjie-training.ui/label--learning-progress "Progress"
     :cangjie-training.ui/label--learn-more-button "Learn %s more words"
+    :cangjie-training.ui/label--continue-review-button "Continue Review"
+    :cangjie-training.ui/label--toggle-practice-mode-button "Toggle Practice Mode"
+    :cangjie-training.ui/label--practice-mode-indicator "Practice Mode - No Impact on Character Mastery"
     :cangjie-training.ui/label--learn-more-prompt
     (str "Add these %s characters to words pool:\n"
          "%s\n"
@@ -57,7 +67,11 @@
     :cangjie-training.ui/label--all-done-line-1 "Review Done."
     :cangjie-training.ui/label--all-done-line-2 "Come back later!"
     :cangjie-training.util/label--recently "recently"
-    :cangjie-training.util/label--soon "soon"}})
+    :cangjie-training.util/label--soon "soon"
+    :cangjie-training.ui/label--daily-stats-title "Today's Progress"
+    :cangjie-training.ui/label--total-reviewed "Characters Reviewed"
+    :cangjie-training.ui/label--total-passed "Characters Passed"
+    :cangjie-training.ui/label--average-score "Average Score"}})
 
 (defn text [text-id language & args]
   (let [str-format (get-in languages-text [language text-id])]
