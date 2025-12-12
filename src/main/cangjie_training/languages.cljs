@@ -25,6 +25,7 @@
     :cangjie-training.ui/label--learn-more-button "學習多%s個字"
     :cangjie-training.ui/label--continue-review-button "繼續學習"
     :cangjie-training.ui/label--toggle-practice-mode-button "切換練習模式"
+    :cangjie-training.ui/label--toggle-pinyin-button "拼音"
     :cangjie-training.ui/label--practice-mode-indicator "練習模式 - 對精通無影響"
     :cangjie-training.ui/label--learn-more-prompt (str "將這%s個字添加到學習詞庫:\n"
                                                        "%s\n"
@@ -59,6 +60,7 @@
     :cangjie-training.ui/label--learn-more-button "Learn %s more words"
     :cangjie-training.ui/label--continue-review-button "Continue Review"
     :cangjie-training.ui/label--toggle-practice-mode-button "Toggle Practice Mode"
+    :cangjie-training.ui/label--toggle-pinyin-button "Pinyin"
     :cangjie-training.ui/label--practice-mode-indicator "Practice Mode - No Impact on Character Mastery"
     :cangjie-training.ui/label--learn-more-prompt
     (str "Add these %s characters to words pool:\n"

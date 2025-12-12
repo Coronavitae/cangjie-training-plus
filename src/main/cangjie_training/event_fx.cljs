@@ -31,6 +31,7 @@
     (= key-code "BracketLeft") [:msg/viz-prev-page]
     (= key-code "Slash") [:msg/set-stats-show-hide (not (:show-stats? model))]
     (= key-code "Backslash") [:msg/toggle-practice-mode]
+    (= key-code "Digit0") [:msg/toggle-pinyin]
     (= key-code "Digit1") [:msg/expand-learner-pool model/learn-more-word-count
                            (langs/text :cangjie-training.ui/label--learn-more-prompt ::langs/display-lang--english)]
     (= key-code "Digit2") [:msg/continue-review]
@@ -151,7 +152,15 @@
                  :hint-count new-hint-count))
          nil])
 
+      :msg/toggle-pinyin
+      (let [new-show-pinyin? (not (:show-pinyin? model))]
+        [(do
+           (swap! state/*show-pinyin? not)
+           (assoc model :show-pinyin? new-show-pinyin?))
+         nil])
+
       [model nil])))
+
 
 (defmulti do-effect! (fn [_model {:keys [fx-type]}] fx-type))
 

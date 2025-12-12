@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [cangjie-training.dictionary :refer [popular-chinese-chars
                                                  radical-dict]]
+            [cangjie-training.pinyin :refer [pinyin-dict]]
             [cangjie-training.learner :as learner]
             [cangjie-training.util :refer [hours-diff log rescale]]))
 
@@ -20,6 +21,10 @@
 
 (defn split-radicals [question-char]
   (-> (radical-dict question-char) (str/split "")))
+
+(defn get-pinyin [char]
+  "Get pinyin pronunciation for a character. Returns nil if not found."
+  (pinyin-dict char))
 
 (defn persist-learner-db! [db-json]
   (->> db-json

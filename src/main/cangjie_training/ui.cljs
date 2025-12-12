@@ -173,6 +173,8 @@
         :title (langs/text ::label--find-char-online (rum/react *display-language)
                            question-char)}
        question-char]]
+     (when (rum/react state/*show-pinyin?)
+       [:div.text-sm.text-gray-500.mt-1 (model/get-pinyin question-char)])
      (char-question-parts model)
      [:div.pt-4 (char-question-controls model >event-chan)]]))
 
@@ -194,6 +196,12 @@
   (let [language (rum/react *display-language)]
     [:div (button (str (langs/text ::label--toggle-practice-mode-button language) " [\\]")
                   #(async/put! >event-chan [:msg/toggle-practice-mode]))]))
+
+(rum/defc toggle-pinyin-button < rum/reactive [>event-chan]
+  (let [language (rum/react *display-language)
+        show-pinyin? (rum/react state/*show-pinyin?)]
+    [:div (button (str (langs/text ::label--toggle-pinyin-button language) " [0]")
+                  #(async/put! >event-chan [:msg/toggle-pinyin]))]))
 
 (rum/defc learner-db-viz < rum/reactive [{:keys [viz-page-size viz-page] :as model}
                                          learner-db >event-chan]
@@ -267,7 +275,8 @@
       ;; button to continue reviewing learnt characters
       (continue-review-button >event-chan)
       ;; button to toggle practice mode
-      (toggle-practice-mode-button >event-chan)]]))
+      (toggle-practice-mode-button >event-chan)
+      (toggle-pinyin-button >event-chan)]]))
 
 (rum/defc learner-stats < rum/reactive [{:keys [show-stats?] :as model}
                                         >event-chan]
