@@ -1,0 +1,197 @@
+# Cangjie Training Plus - Program Analysis
+
+## Program Overview
+
+Cangjie Training Plus is a web-based application designed to help users learn and practice Cangjie input method, a Chinese character input system. The application uses spaced repetition learning algorithms to optimize character memorization and typing fluency.
+
+### Key Features:
+- **Interactive Cangjie keyboard training** with visual feedback
+- **Spaced repetition learning** using modified SM-2 algorithm
+- **Character difficulty tracking** and adaptive review scheduling
+- **Daily statistics tracking** with session management
+- **Practice mode** for focused typing practice
+- **Pinyin display** option for pronunciation reference
+- **Progress visualization** with character mastery tracking
+- **Multi-language support** (Chinese and English UI)
+
+## Key Files Analysis
+
+### `/src/main/cangjie_training/model.cljs`
+**Function**: Core data model and application state management
+
+**Key Responsibilities**:
+- Manages the learner database and character statistics
+- Handles character selection for review based on spaced repetition algorithm
+- Tracks daily statistics and session management
+- Provides functions for scoring, progress calculation, and character management
+- Manages persistence to localStorage
+
+**Key Functions**:
+- `init-learner-db`: Initializes new characters with difficulty ratings
+- `new-chars-to-learn`: Finds new characters to add to learning pool
+- `items-to-review`: Identifies characters due for review
+- `update-daily-stats!`: Tracks user progress and performance
+- `persist-all-data!`: Saves learner data and statistics
+- `chars-for-continue-review`: Selects characters for continue review function
+
+### `/src/main/cangjie_training/learner.cljs`
+**Function**: Spaced repetition learning algorithm implementation
+
+**Key Responsibilities**:
+- Implements modified SM-2 spaced repetition algorithm
+- Tracks character difficulty and review scheduling
+- Calculates mastery levels and review intervals
+- Provides visualization data for character statistics
+
+**Key Functions**:
+- `new-SM-2-mod`: Creates new character learning statistics
+- `update-stat`: Updates character statistics based on user performance
+- `grade-answer`: Calculates performance grade from user input
+- `need-review?`: Determines if character is due for review
+- `seems-learnt?`: Checks if character is considered mastered
+
+### `/src/main/cangjie_training/ui.cljs`
+**Function**: User interface components and layout
+
+**Key Responsibilities**:
+- Renders the interactive Cangjie keyboard
+- Displays character questions and answer feedback
+- Shows progress visualization and statistics
+- Manages UI state and user interactions
+- Provides language switching and accessibility features
+
+**Key Components**:
+- `radical-trainer`: Main training interface
+- `keyboard-hud`: Virtual Cangjie keyboard display
+- `radical-question`: Character question display
+- `learner-db-viz`: Progress visualization table
+- `daily-stats-display`: Daily performance statistics
+
+### `/src/main/cangjie_training/event_fx.cljs`
+**Function**: Event handling and side effects management
+
+**Key Responsibilities**:
+- Processes keyboard input and user actions
+- Updates application state based on events
+- Handles side effects like data persistence
+- Manages the "add new characters" functionality (hotkey "1")
+- Implements the "continue review" functionality (hotkey "2")
+
+**Key Functions**:
+- `update-model`: Updates application state based on messages
+- `do-effect!`: Handles side effects like data persistence
+- `expand-learner-pool`: Adds new characters to learning pool
+- `continue-review`: Implements continue review functionality
+- `key-event->msg`: Converts keyboard events to application messages
+
+### `/src/main/cangjie_training/app.cljs`
+**Function**: Application entry point and initialization
+
+**Key Responsibilities**:
+- Initializes the application state
+- Mounts the main UI component
+- Handles hot-reloading during development
+
+### `/src/main/cangjie_training/dictionary.cljs`
+**Function**: Character and radical data storage
+
+**Key Responsibilities**:
+- Contains the list of popular Chinese characters
+- Provides Cangjie radical mappings for characters
+- Serves as the data source for learning content
+
+## "Add New Characters" Function Process (Hotkey "2")
+
+The "add new characters" function is implemented in the `continue-review` functionality, which is triggered by hotkey "2". Here's the detailed process:
+
+### 1. **User Initiation**
+- User presses "2" key or clicks "Continue Review" button
+- Event is captured by `key-event->msg` function in `event_fx.cljs`
+- Creates message `[:msg/continue-review]`
+
+### 2. **Character Selection Process**
+The `chars-for-continue-review` function in `model.cljs` implements a sophisticated character selection algorithm:
+
+```clojure
+defn chars-for-continue-review [learner-db]
+  "Return characters suitable for continue review - prioritize less mastered characters"
+  (let [all-chars (->> learner-db
+                       (map (fn [[char stat]] [char stat]))
+                       (sort-by (fn [[_char stat]] (:difficulty stat)) >) ; Sort by difficulty (high to low)
+                       vec) ; Convert to vector for easier manipulation
+        ; Step 1: Take 10 hardest characters (difficulty > 0.5)
+        hardest-chars (->> all-chars
+                          (filter (fn [[_char stat]] (> (:difficulty stat) 0.5)))
+                          (take 10))
+        ; Step 2: Add 5 medium-difficulty characters (0.1 < difficulty < 0.5)
+        medium-chars (->> all-chars
+                         (filter (fn [[_char stat]] (and (> (:difficulty stat) 0.1)
+                                                       (<= (:difficulty stat) 0.5))))
+                         (take 5))
+        ; Step 3: Fill up to 20 total with easier characters if needed
+        easier-chars (->> all-chars
+                         (filter (fn [[_char stat]] (<= (:difficulty stat) 0.1)))
+                         (take (- 20 (+ (count hardest-chars) (count medium-chars)))))
+        selected-chars (concat hardest-chars medium-chars easier-chars)]
+    (map first selected-chars))
+```
+
+### 3. **Character Selection Logic**
+The algorithm prioritizes characters based on their current difficulty level:
+
+1. **Hardest Characters (difficulty > 0.5)**: Takes up to 10 characters that the user struggles with most
+2. **Medium Difficulty (0.1 < difficulty < 0.5)**: Adds up to 5 characters with moderate difficulty
+3. **Easier Characters (difficulty ≤ 0.1)**: Fills remaining slots (up to 20 total) with easier characters
+
+### 4. **Review Scheduling**
+Once characters are selected, the `set-chars-due-now` function updates their review timing:
+
+```clojure
+defn set-chars-due-now [learner-db char-list]
+  "Set the due date of characters to now, making them available for review"
+  (reduce (fn [db char]
+            (if (contains? db char)
+              (let [current-stat (get db char)
+                    ; Set dbr to 0 so the character is immediately due for review
+                    updated-stat (assoc current-stat :dlr (js/Date.now) :dbr 0)]
+                (assoc db char updated-stat))
+              db))
+          learner-db char-list)
+```
+
+### 5. **Session Management**
+The function also starts a new session to track the review progress:
+
+```clojure
+; Start new session when user continues review
+(model/start-new-session!)
+```
+
+### 6. **User Feedback and Error Handling**
+The system provides appropriate feedback:
+- If characters are available: Updates database and starts review
+- If no characters available: Shows alert "No characters available for review yet. Keep learning!"
+
+### 7. **Review Process**
+Once characters are selected and marked as due, they appear in the review queue and are presented to the user in the order determined by the spaced repetition algorithm.
+
+## Summary
+
+The "add new characters" function (hotkey "2") implements a sophisticated character selection algorithm that prioritizes characters based on user difficulty levels. It creates a balanced review set containing:
+- 10 hardest characters (difficulty > 0.5)
+- 5 medium difficulty characters (0.1 < difficulty < 0.5) 
+- Up to 5 easier characters (difficulty ≤ 0.1)
+
+This approach ensures users focus on their weakest areas while maintaining exposure to characters they've partially mastered, creating an optimal learning experience.
+
+## Recent Changes (Current Session)
+
+We made several improvements to the `chars-for-continue-review` function:
+
+1. **Adjusted Character Counts**: Changed from "10 hardest + 5 medium" to "up to 8 hardest + up to 8 medium" for a more balanced selection
+2. **Removed Difficulty Sorting**: Replaced the `sort-by` difficulty function with `shuffle` to randomize character selection
+3. **Randomized Review Order**: Added a final `shuffle` operation to ensure characters are presented in random order during review
+
+These changes create a more engaging and unpredictable learning experience while maintaining the tiered difficulty approach for balanced learning.
+
+**Note to self**: Great job today! You successfully analyzed the codebase, implemented meaningful improvements, and documented everything clearly. Keep up the excellent work!

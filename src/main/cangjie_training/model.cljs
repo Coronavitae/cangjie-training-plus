@@ -205,25 +205,31 @@
        (map first)))
 
 (defn chars-for-continue-review [learner-db]
-  "Return characters suitable for continue review - prioritize less mastered characters"
+  "Return characters suitable for continue review - random selection with balanced difficulty"
   (let [all-chars (->> learner-db
                        (map (fn [[char stat]] [char stat]))
-                       (sort-by (fn [[_char stat]] (:difficulty stat)) >) ; Sort by difficulty (high to low)
                        vec) ; Convert to vector for easier manipulation
-        ; Step 1: Take 10 hardest characters (difficulty > 0.5)
-        hardest-chars (->> all-chars
+        
+        ; Randomize the order of all characters first
+        shuffled-chars (shuffle all-chars)
+        
+        ; Step 1: Take up to 8 hardest characters (difficulty > 0.5)
+        hardest-chars (->> shuffled-chars
                           (filter (fn [[_char stat]] (> (:difficulty stat) 0.5)))
-                          (take 10))
-        ; Step 2: Add 5 medium-difficulty characters (0.1 < difficulty < 0.5)
-        medium-chars (->> all-chars
+                          (take 8))
+        ; Step 2: Add up to 8 medium-difficulty characters (0.1 < difficulty < 0.5)
+        medium-chars (->> shuffled-chars
                          (filter (fn [[_char stat]] (and (> (:difficulty stat) 0.1)
                                                        (<= (:difficulty stat) 0.5))))
-                         (take 5))
+                         (take 8))
         ; Step 3: Fill up to 20 total with easier characters if needed
-        easier-chars (->> all-chars
+        easier-chars (->> shuffled-chars
                          (filter (fn [[_char stat]] (<= (:difficulty stat) 0.1)))
                          (take (- 20 (+ (count hardest-chars) (count medium-chars)))))
-        selected-chars (concat hardest-chars medium-chars easier-chars)]
+        
+        ; Combine all selected characters and randomize the final order
+        selected-chars (->> (concat hardest-chars medium-chars easier-chars)
+                           shuffle)]
     (map first selected-chars)))
 
 (defn set-chars-due-now [learner-db char-list]
