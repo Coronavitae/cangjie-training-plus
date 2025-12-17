@@ -192,6 +192,11 @@
     [:div (button (str (langs/text ::label--continue-review-button language) " [2]")
                   #(async/put! >event-chan [:msg/continue-review]))]))
 
+(rum/defc review-hardest-button < rum/reactive [>event-chan]
+  (let [language (rum/react *display-language)]
+    [:div (button (str (langs/text ::label--review-hardest-button language) " [3]")
+                  #(async/put! >event-chan [:msg/review-hardest]))]))
+
 (rum/defc toggle-practice-mode-button < rum/reactive [>event-chan]
   (let [language (rum/react *display-language)]
     [:div (button (str (langs/text ::label--toggle-practice-mode-button language) " [\\]")
@@ -274,6 +279,8 @@
       (learn-more-prompt model/learn-more-word-count >event-chan)
       ;; button to continue reviewing learnt characters
       (continue-review-button >event-chan)
+      ;; button to review hardest characters
+      (review-hardest-button >event-chan)
       ;; button to toggle practice mode
       (toggle-practice-mode-button >event-chan)
       (toggle-pinyin-button >event-chan)]]))
@@ -386,7 +393,7 @@
 ;; Version indicator component
 (rum/defc version-indicator < rum/static []
   [:div.absolute.bottom-2.right-2.text-xs.text-gray-400.dark:text-gray-500
-   "v0.22"])
+   "v0.24"])
 
 ;; app main
 (rum/defc app-main [*model]

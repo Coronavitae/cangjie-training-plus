@@ -35,6 +35,7 @@
     (= key-code "Digit1") [:msg/expand-learner-pool model/learn-more-word-count
                            (langs/text :cangjie-training.ui/label--learn-more-prompt ::langs/display-lang--english)]
     (= key-code "Digit2") [:msg/continue-review]
+    (= key-code "Digit3") [:msg/review-hardest]
     :else (let [key-name (key-code->name key-code)]
             (if (contains? model/keyboard-key->cj-part key-name)
               [:msg/enter-char key-name]
@@ -140,6 +141,12 @@
         :post-fx (fn [learner-db] [[:msg/save-learner-db learner-db]
                                      [:msg/new-question learner-db]])}]
 
+      :msg/review-hardest
+      [model
+       {:fx-type :fx/review-hardest
+        :post-fx (fn [learner-db] [[:msg/save-learner-db learner-db]
+                                     [:msg/new-question learner-db]])}]
+
       :msg/toggle-practice-mode
       (let [new-practice-mode? (not (:practice-mode? model))
             new-hint-count (if new-practice-mode?
@@ -240,6 +247,19 @@
           (log "Updated DB:" (count updated-db) "chars, due chars:" (count (model/items-to-review updated-db)))
           (post-fx updated-db)))
       (js/alert "No characters available for review yet. Keep learning!"))))
+
+(defmethod do-effect! :fx/review-hardest
+  [_db {:keys [post-fx]}]
+  ; Start new session when user reviews hardest
+  (model/start-new-session!)
+  (let [chars-to-review (model/chars-for-hardest-review @model/*learner-db)]
+    (if (seq chars-to-review)
+      (do
+        (log "Reviewing hardest - chars to review:" chars-to-review)
+        (let [updated-db (swap! *learner-db model/set-chars-due-now chars-to-review)]
+          (log "Updated DB:" (count updated-db) "chars, due chars:" (count (model/items-to-review updated-db)))
+          (post-fx updated-db)))
+      (js/alert "No characters available for hardest review yet. Keep learning!"))))
 
 (defn init-event-msg-chan [*model *pressed-keys]
   (let [>message-chan (async/chan)]

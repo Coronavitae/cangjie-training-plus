@@ -227,6 +227,23 @@
                            shuffle)]
     (map first selected-chars)))
 
+(defn chars-for-hardest-review [learner-db]
+  "Return the 20 hardest characters that are not currently due for review"
+  (let [all-chars (->> learner-db
+                       (map (fn [[char stat]] [char stat]))
+                       vec)
+        
+        ; Filter out characters that are already due for review
+        non-due-chars (->> all-chars
+                          (filter (fn [[_char stat]] (not (learner/need-review? stat))))
+                          vec)
+        
+        ; Sort by difficulty (hardest to easiest) and take top 20
+        hardest-chars (->> non-due-chars
+                          (sort-by (fn [[_char stat]] (:difficulty stat)) >)
+                          (take 20))]
+    (map first hardest-chars)))
+
 (defn set-chars-due-now [learner-db char-list]
   "Set the due date of characters to now, making them available for review"
   (reduce (fn [db char]

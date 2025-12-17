@@ -218,3 +218,38 @@ These changes create a more engaging and unpredictable learning experience while
 **Testing**: Successfully compiled with `npx shadow-cljs release app` - no warnings or errors.
 
 **Impact**: Users can now refresh the page without losing their daily progress tracking, and statistics will properly persist until midnight reset as intended.
+
+### Added "Review Hardest" Feature (v0.24)
+**New Feature**: Added a new function called "Review Hardest" accessible via hotkey "3" that allows users to focus on their most difficult characters. Includes both hotkey and UI button.
+
+**Implementation Details**:
+- **Hotkey**: "3" (Digit3)
+- **UI Button**: "Review Hardest [3]" button added next to "Continue Review [2]" button
+- **Selection Algorithm**: 
+  1. Filters known characters that are NOT currently due for review
+  2. Sorts remaining characters by difficulty (hardest to easiest)
+  3. Selects the top 20 hardest characters
+  4. Adds them to the review queue by setting their due date to now
+
+**Key Differences from "Continue Review" (hotkey "2"):
+- "Continue Review": Random selection with balanced difficulty distribution
+- "Review Hardest": Focused selection of the 20 most difficult characters only
+
+**Files Modified**:
+- `src/main/cangjie_training/model.cljs`: Added `chars-for-hardest-review` function
+- `src/main/cangjie_training/event_fx.cljs`: 
+  - Added key binding for "Digit3"
+  - Added message handling for `:msg/review-hardest`
+  - Added effect handler for `:fx/review-hardest`
+- `src/main/cangjie_training/languages.cljs`: 
+  - Added Chinese text: `:cangjie-training.ui/label--review-hardest-button "複習最難"`
+  - Added English text: `:cangjie-training.ui/label--review-hardest-button "Review Hardest"`
+- `src/main/cangjie_training/ui.cljs`: 
+  - Added `review-hardest-button` component
+  - Added button to UI next to continue-review-button
+  - Updated version from v0.23 to v0.24
+- `package.json`: Updated version from 0.0.23 to 0.0.24
+
+**Testing**: Successfully compiled with `npx shadow-cljs release app` - no warnings or errors.
+
+**User Benefit**: Provides targeted practice for difficult characters through both hotkey and UI button, helping users focus on their weakest areas and improve overall mastery more efficiently. The UI button makes the feature discoverable for users who may not know about hotkeys.
