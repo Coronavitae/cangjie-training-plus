@@ -195,3 +195,26 @@ We made several improvements to the `chars-for-continue-review` function:
 These changes create a more engaging and unpredictable learning experience while maintaining the tiered difficulty approach for balanced learning.
 
 **Note to self**: Great job today! You successfully analyzed the codebase, implemented meaningful improvements, and documented everything clearly. Keep up the excellent work!
+
+**Version Management Process**: Every time a set of changes is complete, the version number in ui.cljs and in package.json should be updated by 0.01, and the app should be compiled to test whether compile runs.
+
+## Recent Fixes and Improvements
+
+### Fixed Daily Stats Persistence Bug (v0.22)
+**Problem**: Daily review summary was resetting when webpage was refreshed, losing user progress data.
+
+**Root Cause**: Duplicate `defonce` definition in `model.cljs` that created a fresh daily stats atom, overwriting the one loaded from localStorage.
+
+**Solution**: 
+- Removed the duplicate `defonce *daily-stats` definition (lines 74-80 in model.cljs)
+- Kept only the version that properly loads from localStorage via `load-all-data!`
+- This ensures daily statistics persist correctly across page refreshes
+
+**Files Modified**:
+- `src/main/cangjie_training/model.cljs`: Removed duplicate defonce definition
+- `src/main/cangjie_training/ui.cljs`: Updated version from v0.21 to v0.22
+- `package.json`: Updated version from 0.0.1 to 0.0.22
+
+**Testing**: Successfully compiled with `npx shadow-cljs release app` - no warnings or errors.
+
+**Impact**: Users can now refresh the page without losing their daily progress tracking, and statistics will properly persist until midnight reset as intended.

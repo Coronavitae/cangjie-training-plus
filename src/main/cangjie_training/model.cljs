@@ -105,12 +105,7 @@
 (defonce *daily-stats (second *learner-db-and-stats))
 
 ;;; Daily statistics tracking with session awareness
-(defonce *daily-stats (atom {:date (-> (js/Date.) .toDateString)
-                             :current-session-id (str (js/Date.now)) ; Timestamp as session ID
-                             :sessions {} ; {session-id {char1 true, char2 true}}
-                             :total-reviewed 0
-                             :total-passed 0
-                             :total-scores []}))
+;; Note: *daily-stats is already initialized above from load-all-data!
 
 (defn reset-daily-stats! []
   "Reset daily statistics if it's a new day"

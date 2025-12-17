@@ -1,6 +1,6 @@
 {
   "name": "cangjie-training",
-  "version": "0.0.1",
+  "version": "0.0.22",
   "private": true,
   "devDependencies": {
     "shadow-cljs": "2.18.0"

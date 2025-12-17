@@ -386,7 +386,7 @@
 ;; Version indicator component
 (rum/defc version-indicator < rum/static []
   [:div.absolute.bottom-2.right-2.text-xs.text-gray-400.dark:text-gray-500
-   "v0.21"])
+   "v0.22"])
 
 ;; app main
 (rum/defc app-main [*model]
